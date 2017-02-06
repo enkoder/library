@@ -2,8 +2,12 @@ package server
 
 import (
 	"net/http"
+
+	"github.com/boltdb/bolt"
 )
 
-func UndoHandler(w http.ResponseWriter, r *http.Request) {
-	return
+func UndoHandler(db *bolt.DB) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+
+	}
 }

@@ -2,8 +2,12 @@ package server
 
 import (
 	"net/http"
+
+	"github.com/boltdb/bolt"
 )
 
-func UserHandler(w http.ResponseWriter, r *http.Request) {
-	return
+func UserHandler(db *bolt.DB) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+
+	}
 }
