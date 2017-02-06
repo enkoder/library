@@ -33,10 +33,10 @@ func main() {
 
 	// Set up routers
 	r := mux.NewRouter()
-	r.HandleFunc("/api/${user:[a-zA-Z]}", server.UserHandler(db))
-	r.HandleFunc("/api/${user:[a-zA-Z]}/book/${title}", server.BookHandler(db))
-	r.HandleFunc("/api/${user:[a-zA-Z]}/book", server.BooksHandler(db))
-	r.HandleFunc("/api/${user:[a-zA-Z]}/undo", server.UndoHandler(db))
+	r.HandleFunc("/api/{user:[a-zA-Z]+}/book/${title}", server.BookHandler(db))
+	r.HandleFunc("/api/{user:[a-zA-Z]+}/book", server.BooksHandler(db))
+	r.HandleFunc("/api/{user:[a-zA-Z]+}/undo", server.UndoHandler(db))
+	r.HandleFunc("/api/{user:[a-zA-Z]+}", server.UserHandler(db))
 
 	// Listen forever
 	bind := fmt.Sprintf("%s:%d", Host, Port)
