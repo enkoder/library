@@ -1,7 +1,10 @@
 # library: an interview coding challenge
-This challenge was given to me by an unnamed company for an interview question.
+This challenge was given to me by an unnamed company for a take home interview question.
 I am leaving the name out of this to allow them to reuse the question and for me
 to showcase it for other companies if this one didn't work out :)
+
+It took me 6-7 hours to complete the entire project as it stands right now. I am not going to work on it
+anymore becaause this is a demonstration of my approach to the problem in terms of design.
 
 I have written CLI's in Click and web servers using Flask and Django.
 I knew I could do the challenge faster using those tools, however I like to use Go any chance I get.
