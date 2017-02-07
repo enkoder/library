@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -30,7 +31,7 @@ var UndoCmd = &cobra.Command{
 
 		// ensure the return code is expected
 		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("%s (%d)\n", string(body), resp.StatusCode)
+			return fmt.Errorf("%s (%d)\n", strings.Trim(string(body), "\n"), resp.StatusCode)
 		}
 
 		fmt.Println(string(body))
