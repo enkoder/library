@@ -58,6 +58,27 @@ func BooksHandler(db *bolt.DB) func(http.ResponseWriter, *http.Request) {
 // api/${user}/book/${title}
 func BookHandler(db *bolt.DB) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Gets the id from the url
+		vars := mux.Vars(r)
+		user := vars["user"]
+		title := vars["title"]
 
+		// Need to get the book in all methods in this handler
+		book, err := GetBook(db, user, title)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		switch r.Method {
+		case "GET":
+			// Sets header, code, and marshal response
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(book)
+
+		default:
+			http.Error(w, fmt.Sprintf("method %s not allowed", r.Method), http.StatusMethodNotAllowed)
+		}
 	}
 }
