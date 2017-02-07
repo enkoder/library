@@ -32,4 +32,5 @@ func init() {
 	RootCmd.AddCommand(AddCmd)
 	RootCmd.AddCommand(ReadCmd)
 	RootCmd.AddCommand(ShowCmd)
+	RootCmd.AddCommand(UndoCmd)
 }
