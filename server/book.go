@@ -4,22 +4,35 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/boltdb/bolt"
 	"github.com/gorilla/mux"
 )
 
-// api/${user}/book
+// api/${user}/book?read=true
 func BooksHandler(db *bolt.DB) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-
 		// Gets the id from the url
 		vars := mux.Vars(r)
 		user := vars["user"]
 
+		// extract the query params
+		var isread *bool
+		q := r.URL.Query()
+		read := q.Get("read")
+		if read != "" {
+			b, err := strconv.ParseBool(read)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			isread = &b
+		}
+
 		switch r.Method {
 		case "GET":
-			books, err := GetBooks(db, user)
+			books, err := GetBooks(db, user, isread)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
