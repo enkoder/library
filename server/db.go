@@ -49,7 +49,7 @@ func StageUndoDelete(db *bolt.DB, user string, b *Book) error {
 		undo := Undo{
 			Type:  UndoTypeDelete,
 			Text:  fmt.Sprintf("Removed \"%s\" by \"%s\"", b.Title, b.Author),
-			Title: b.Title,
+			Title: SnakeCase(b.Title),
 		}
 
 		// marshal the undo into json
@@ -74,7 +74,7 @@ func StageUndoUnread(db *bolt.DB, user string, b *Book) error {
 		undo := Undo{
 			Type:  UndoTypeUnread,
 			Text:  fmt.Sprintf("\"%s\" by \"%s\" was marked as unread", b.Title, b.Author),
-			Title: b.Title,
+			Title: SnakeCase(b.Title),
 		}
 
 		// marshal the undo into json
@@ -243,7 +243,7 @@ func deleteBook(tx *bolt.Tx, user, title string) error {
 		return ErrUserCreate
 	}
 
-	err = ubkt.Delete([]byte(user))
+	err = ubkt.Delete([]byte(title))
 	if err != nil {
 		return ErrInvalidBook
 	}
