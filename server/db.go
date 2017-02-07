@@ -8,10 +8,18 @@ import (
 	"github.com/boltdb/bolt"
 )
 
+const (
+	UndoBucketName = "undos"
+	UndoTypeUnread = "unread"
+	UndoTypeDelete = "delete"
+)
+
 var (
 	// Errors
 	ErrUserCreate  = fmt.Errorf("Cannot create user")
 	ErrInvalidBook = fmt.Errorf("Invalid book title")
+	ErrInvalidUser = fmt.Errorf("Invalid user")
+	ErrUndoCreate  = fmt.Errorf("Cannot create undo bucket")
 )
 
 type Book struct {
@@ -20,45 +28,175 @@ type Book struct {
 	Read   bool   `json:"read"`
 }
 
+type Undo struct {
+	Type  string `json:"type"`
+	Text  string `json:"text"`
+	Title string `json:"title"`
+}
+
 func SnakeCase(s string) string {
 	return strings.Replace(strings.ToLower(s), " ", "_", -1)
 }
 
-func PutBook(db *bolt.DB, user string, b *Book) error {
+func StageUndoDelete(db *bolt.DB, user string, b *Book) error {
 	return db.Update(func(tx *bolt.Tx) error {
-		ubkt, err := tx.CreateBucketIfNotExists([]byte(user))
+		ubkt, err := tx.CreateBucketIfNotExists([]byte(UndoBucketName))
 		if err != nil {
-			return ErrUserCreate
+			return ErrUndoCreate
 		}
 
-		// marshal the book into json
-		buf, err := json.Marshal(b)
+		// Create and stage the undo for the user
+		undo := Undo{
+			Type:  UndoTypeDelete,
+			Text:  fmt.Sprintf("Removed \"%s\" by \"%s\"", b.Title, b.Author),
+			Title: b.Title,
+		}
+
+		// marshal the undo into json
+		buf, err := json.Marshal(undo)
 		if err != nil {
 			return err
 		}
 
 		// put the book into the bucket with the key being the title
-		return ubkt.Put([]byte(SnakeCase(b.Title)), buf)
+		return ubkt.Put([]byte(user), buf)
 	})
 }
 
-func GetBook(db *bolt.DB, user, title string) (*Book, error) {
-	var b Book
-	err := db.Update(func(tx *bolt.Tx) error {
-		ubkt, err := tx.CreateBucketIfNotExists([]byte(user))
+func StageUndoUnread(db *bolt.DB, user string, b *Book) error {
+	return db.Update(func(tx *bolt.Tx) error {
+		ubkt, err := tx.CreateBucketIfNotExists([]byte(UndoBucketName))
 		if err != nil {
-			return ErrUserCreate
+			return ErrUndoCreate
 		}
 
-		v := ubkt.Get([]byte(title))
+		// Create and stage the undo for the user
+		undo := Undo{
+			Type:  UndoTypeUnread,
+			Text:  fmt.Sprintf("\"%s\" by \"%s\" was marked as unread", b.Title, b.Author),
+			Title: b.Title,
+		}
+
+		// marshal the undo into json
+		buf, err := json.Marshal(undo)
+		if err != nil {
+			return err
+		}
+
+		// put the book into the bucket with the key being the title
+		return ubkt.Put([]byte(user), buf)
+	})
+}
+
+func ExecuteUndo(db *bolt.DB, user string) (string, error) {
+	var text string
+	err := db.Update(func(tx *bolt.Tx) error {
+		ubkt, err := tx.CreateBucketIfNotExists([]byte(UndoBucketName))
+		if err != nil {
+			return ErrUndoCreate
+		}
+
+		v := ubkt.Get([]byte(user))
 		if v == nil {
-			return ErrInvalidBook
+			return ErrInvalidUser
 		}
 
-		return json.Unmarshal(v, &b)
+		// get the latest undo for the user
+		var undo Undo
+		err = json.Unmarshal(v, &undo)
+		if err != nil {
+			return err
+		}
+
+		// Be sure to set the value of the text to the caller
+		text = undo.Text
+
+		// Execute the two different types of undos
+		switch undo.Type {
+		case UndoTypeDelete:
+			err := deleteBook(tx, user, undo.Title)
+			if err != nil {
+				return err
+			}
+
+		case UndoTypeUnread:
+			// Get the book which should now be in a read state
+			b, err := getBook(tx, user, undo.Title)
+			if err != nil {
+				return err
+			}
+
+			// Update the books
+			b.Read = false
+
+			// Jam it back in the db
+			return putBook(tx, user, b)
+
+		default:
+			return fmt.Errorf("Unknows undo type: %s", undo.Type)
+		}
+
+		// deletes the undo since its executed
+		return ubkt.Delete([]byte(user))
 	})
 
-	return &b, err
+	return text, err
+}
+
+func putBook(tx *bolt.Tx, user string, b *Book) error {
+	ubkt, err := tx.CreateBucketIfNotExists([]byte(user))
+	if err != nil {
+		return ErrUserCreate
+	}
+
+	// marshal the book into json
+	buf, err := json.Marshal(b)
+	if err != nil {
+		return err
+	}
+
+	// put the book into the bucket with the key being the title
+	return ubkt.Put([]byte(SnakeCase(b.Title)), buf)
+}
+
+func PutBook(db *bolt.DB, user string, b *Book) error {
+	return db.Update(func(tx *bolt.Tx) error {
+		return putBook(tx, user, b)
+	})
+}
+
+func getBook(tx *bolt.Tx, user, title string) (*Book, error) {
+	var book Book
+	ubkt, err := tx.CreateBucketIfNotExists([]byte(user))
+	if err != nil {
+		return nil, ErrUserCreate
+	}
+
+	v := ubkt.Get([]byte(title))
+	if v == nil {
+		return nil, ErrInvalidBook
+	}
+
+	err = json.Unmarshal(v, &book)
+	if err != nil {
+		return nil, err
+	}
+
+	return &book, nil
+}
+
+func GetBook(db *bolt.DB, user, title string) (*Book, error) {
+	var book *Book
+	var err error
+	err = db.Update(func(tx *bolt.Tx) error {
+		book, err = getBook(tx, user, title)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
+	return book, err
 }
 
 func GetBooks(db *bolt.DB, user string, isread *bool) ([]Book, error) {
@@ -86,17 +224,22 @@ func GetBooks(db *bolt.DB, user string, isread *bool) ([]Book, error) {
 
 	return books, err
 }
+
+func deleteBook(tx *bolt.Tx, user, title string) error {
+	ubkt, err := tx.CreateBucketIfNotExists([]byte(user))
+	if err != nil {
+		return ErrUserCreate
+	}
+
+	err = ubkt.Delete([]byte(user))
+	if err != nil {
+		return ErrInvalidBook
+	}
+	return nil
+}
+
 func DeleteBook(db *bolt.DB, user, title string) error {
 	return db.Update(func(tx *bolt.Tx) error {
-		ubkt, err := tx.CreateBucketIfNotExists([]byte(user))
-		if err != nil {
-			return ErrUserCreate
-		}
-
-		err = ubkt.Delete([]byte(user))
-		if err != nil {
-			return ErrInvalidBook
-		}
-		return nil
+		return deleteBook(tx, user, title)
 	})
 }
