@@ -77,6 +77,38 @@ func BookHandler(db *bolt.DB) func(http.ResponseWriter, *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			json.NewEncoder(w).Encode(book)
 
+		case "POST":
+			pbody := struct {
+				Read *bool `json:"read"`
+			}{}
+
+			decoder := json.NewDecoder(r.Body)
+			err := decoder.Decode(&pbody)
+			if err != nil {
+				http.Error(w, "Post body not formatted properly", http.StatusBadRequest)
+				return
+			}
+
+			// Ensure they send us the read field
+			if pbody.Read == nil {
+				http.Error(w, "Post body didn't contain read json field", http.StatusBadRequest)
+				return
+			}
+
+			// Set the read state of the book
+			book.Read = *pbody.Read
+
+			// insert the new book data into the db
+			err = PutBook(db, user, book)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			// Sets header, code, and marshal response
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+
 		default:
 			http.Error(w, fmt.Sprintf("method %s not allowed", r.Method), http.StatusMethodNotAllowed)
 		}
