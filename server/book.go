@@ -58,6 +58,12 @@ func BooksHandler(db *bolt.DB) func(http.ResponseWriter, *http.Request) {
 				return
 			}
 
+			err = StageUndoDelete(db, user, &b)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("Unable to stage undo: %v", err), http.StatusInternalServerError)
+				return
+			}
+
 			// Sets header, code, and marshal response
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusCreated)
@@ -115,6 +121,12 @@ func BookHandler(db *bolt.DB) func(http.ResponseWriter, *http.Request) {
 			err = PutBook(db, user, book)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			err = StageUndoUnread(db, user, book)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("Unable to stage undo: %v", err), http.StatusInternalServerError)
 				return
 			}
 
