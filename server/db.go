@@ -199,7 +199,7 @@ func GetBook(db *bolt.DB, user, title string) (*Book, error) {
 	return book, err
 }
 
-func GetBooks(db *bolt.DB, user string, isread *bool) ([]Book, error) {
+func GetBooks(db *bolt.DB, user string, isread *bool, author *string) ([]Book, error) {
 	books := make([]Book, 0)
 	err := db.Update(func(tx *bolt.Tx) error {
 		ubkt, err := tx.CreateBucketIfNotExists([]byte(user))
@@ -214,10 +214,22 @@ func GetBooks(db *bolt.DB, user string, isread *bool) ([]Book, error) {
 				return err
 			}
 
-			// Used to filter books by read or unread
-			if isread == nil || b.Read == *isread {
+			if isread != nil && author != nil {
+				if b.Read == *isread && b.Author == *author {
+					books = append(books, b)
+				}
+			} else if isread != nil && author == nil {
+				if b.Read == *isread {
+					books = append(books, b)
+				}
+			} else if isread == nil && author != nil {
+				if b.Author == *author {
+					books = append(books, b)
+				}
+			} else {
 				books = append(books, b)
 			}
+
 			return nil
 		})
 	})
