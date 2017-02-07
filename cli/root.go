@@ -30,4 +30,6 @@ func init() {
 	RootCmd.PersistentFlags().StringVar(&Url, "url", "http://0.0.0.0:8080/api", "API host url")
 	RootCmd.PersistentFlags().StringVar(&User, "user", u.Username, "Username to use with API")
 	RootCmd.AddCommand(AddCmd)
+	RootCmd.AddCommand(ReadCmd)
+	RootCmd.AddCommand(ShowCmd)
 }
