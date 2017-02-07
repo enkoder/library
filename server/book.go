@@ -10,7 +10,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
-// api/${user}/book?read=true
+// api/${user}/book?read=true&by=kodie
 func BooksHandler(db *bolt.DB) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Gets the id from the url
@@ -19,20 +19,25 @@ func BooksHandler(db *bolt.DB) func(http.ResponseWriter, *http.Request) {
 
 		// extract the query params
 		var isread *bool
+		var author *string
 		q := r.URL.Query()
+		a := q.Get("by")
 		read := q.Get("read")
 		if read != "" {
-			b, err := strconv.ParseBool(read)
+			b, err := strconv.ParseBool(q.Get("read"))
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
 			isread = &b
 		}
+		if a != "" {
+			author = &a
+		}
 
 		switch r.Method {
 		case "GET":
-			books, err := GetBooks(db, user, isread)
+			books, err := GetBooks(db, user, isread, author)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
